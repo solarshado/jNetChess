@@ -1,4 +1,5 @@
 package solarshado.jNetChess;
+
 // a Dialog subclass for getting a player's name
 
 import java.awt.*;
@@ -15,9 +16,9 @@ public class NameDialog extends Dialog implements ActionListener {
 	private final Button btnNO = new Button("Exit");
 
 	public NameDialog() {
-		super((Frame)null, "Enter your player name:", true);
+		super((Frame) null, "Enter your player name:", true);
 
-		setLayout(new FlowLayout(FlowLayout.CENTER,0,0));
+		setLayout(new FlowLayout(FlowLayout.CENTER, 0, 0));
 		setResizable(false);
 		add(box);
 		add(btnOK);
@@ -32,37 +33,38 @@ public class NameDialog extends Dialog implements ActionListener {
 
 	@Override
 	public String getName() {
-		setVisible(true); //blocks
-		if(nameGot == null) return null;
+		setVisible(true); // blocks
+		if (nameGot == null)
+			return null;
 		return (nameGot.equals("") ? null : nameGot);
 	}
 
 	public static void main(String[] arg) {
-		System.out.println("Got: "+ (new NameDialog()).getName());
+		System.out.println("Got: " + (new NameDialog()).getName());
 	}
 
 	@Override
 	public void actionPerformed(ActionEvent e) {
-		final Component source = (Component)e.getSource();
-		if(source == btnNO) {
+		final Component source = (Component) e.getSource();
+		if (source == btnNO) {
 			nameGot = null;
 			setVisible(false);
 			dispose();
-		}
-		else if(source == box || source == btnOK) {
+		} else if (source == box || source == btnOK) {
 			nameGot = box.getText().trim();
 			setVisible(false);
-			dispose();    
+			dispose();
+		} else {
+			assert false;
 		}
-		else { assert false; }
 	}
 
 	@Override
 	public void setVisible(boolean b) {
-		if(b) {
+		if (b) {
 			Dimension screen = Toolkit.getDefaultToolkit().getScreenSize();
-			setLocation(	(screen.width -getSize().width) /2,
-					(screen.height-getSize().height)/2 );
+			setLocation((screen.width - getSize().width) / 2,
+					(screen.height - getSize().height) / 2);
 		}
 		super.setVisible(b);
 	}
@@ -70,7 +72,7 @@ public class NameDialog extends Dialog implements ActionListener {
 	private static WindowListener winListener = new WindowAdapter() {
 		@Override
 		public void windowClosing(WindowEvent e) {
-			NameDialog w = (NameDialog)e.getSource();
+			NameDialog w = (NameDialog) e.getSource();
 			// should be a safe cast, class is private
 			w.nameGot = null;
 			w.setVisible(false);

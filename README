@@ -1,0 +1,13 @@
+-----------
+ jNetChess
+-----------
+
+Play chess with anyone on your local network!
+
+Planned Features:
+ * a simple lobby, shows all available games, with preferences/settings for each
+ * two (maybe more) board sizes
+ * in-game chat
+
+Distant Dream Feature:
+ * internet play (lobby probably not possible)
