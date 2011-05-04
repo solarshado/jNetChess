@@ -71,12 +71,7 @@ public class NameDialog extends JDialog implements ActionListener {
 
     @Override
     public void setVisible(boolean b) {
-        if (b) {
-            java.awt.Dimension screen = java.awt.Toolkit.getDefaultToolkit()
-                    .getScreenSize();
-            setLocation((screen.width - getSize().width) / 2,
-                    (screen.height - getSize().height) / 2);
-        }
+        if (b) Util.centerWindow(this);
         super.setVisible(b);
     }
 
