@@ -1,14 +1,14 @@
 package solarshado.jNetChess;
 
-import java.awt.*;
+import javax.swing.*;
 import java.awt.event.*;
 
 public class Test extends WindowAdapter {
 	public static void main(String[] arg) throws Exception {
 
-		final Frame f0 = new Frame("Test");
+		final JFrame f0 = new JFrame("Test");
 		final ChessBoard cb = new ChessBoard(ChessBoard.LARGE);
-		Button b1 = new Button("Size");
+		JButton b1 = new JButton("Size");
 
 		b1.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
@@ -18,8 +18,8 @@ public class Test extends WindowAdapter {
 			}
 		});
 
-		f0.setLayout(new FlowLayout());
-		f0.setBackground(SystemColor.control);
+		f0.setLayout(new java.awt.FlowLayout());
+		f0.setBackground(java.awt.SystemColor.control);
 
 		f0.add(cb);
 		f0.add(b1);
@@ -32,9 +32,9 @@ public class Test extends WindowAdapter {
 
 	@Override
 	public void windowClosing(WindowEvent e) {
-		final Window w = (Window) e.getSource();
+		final java.awt.Window w = (java.awt.Window) e.getSource();
 		w.setVisible(false);
 		w.dispose();
-		System.out.println("Window closed");
+		// System.out.println("Window closed");
 	}
 }
