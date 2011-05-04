@@ -3,7 +3,6 @@ package solarshado.jNetChess;
 // a Dialog subclass for getting a player's name
 
 import javax.swing.*;
-import java.awt.FlowLayout;
 import java.awt.event.*;
 
 public class NameDialog extends JDialog implements ActionListener {
@@ -19,11 +18,17 @@ public class NameDialog extends JDialog implements ActionListener {
 	public NameDialog() {
 		super((java.awt.Frame) null, "Enter your player name:", true);
 
-		setLayout(new FlowLayout(FlowLayout.CENTER, 0, 0));
+		getContentPane().setLayout(new BoxLayout(getContentPane(), BoxLayout.Y_AXIS));
+		
+		final JPanel btnPanel = new JPanel();
+		btnPanel.setLayout(new BoxLayout(btnPanel, BoxLayout.X_AXIS));
+		btnPanel.add(btnOK);
+		btnPanel.add(Box.createRigidArea(new java.awt.Dimension(5,0)));
+		btnPanel.add(btnNO);
+		
 		setResizable(false);
 		add(box);
-		add(btnOK);
-		add(btnNO);
+		add(btnPanel);
 		pack();
 
 		addWindowListener(NameDialog.winListener);
@@ -63,7 +68,8 @@ public class NameDialog extends JDialog implements ActionListener {
 	@Override
 	public void setVisible(boolean b) {
 		if (b) {
-			java.awt.Dimension screen = java.awt.Toolkit.getDefaultToolkit().getScreenSize();
+			java.awt.Dimension screen = java.awt.Toolkit.getDefaultToolkit()
+					.getScreenSize();
 			setLocation((screen.width - getSize().width) / 2,
 					(screen.height - getSize().height) / 2);
 		}
