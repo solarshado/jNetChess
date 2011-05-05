@@ -2,7 +2,12 @@ package solarshado.jNetChess.net;
 
 import java.net.*;
 import java.io.*;
-
+/**
+ * represents an established connection
+ * objects will be created by a Lobby and passed to a LobbybListener
+ * constructors will handle establishing said connection
+ * @author Adrian Todd
+ */
 public final class RemoteConnection {
 
 //    public final String remotePlayerName;
@@ -15,7 +20,7 @@ public final class RemoteConnection {
      * connected.
      */
     public RemoteConnection() {
-        // TODO
+        // TODO stub
     }
 
     /**
@@ -27,6 +32,6 @@ public final class RemoteConnection {
      *            Address to (attempt) to connect to.
      */
     public RemoteConnection(InetAddress remote) {
-        // TODO Auto-generated constructor stub
+        // TODO stub
     }
 }

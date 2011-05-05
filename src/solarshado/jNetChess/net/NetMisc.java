@@ -4,7 +4,7 @@ import java.net.*;
 
 public abstract class NetMisc {
 
-    public static final int UDP_PORT = 61020, TCP_PORT = 61020;
+    public static final int MULTICAST_PORT = 61020, TCP_PORT = 61020;
     public static final InetAddress /*BROADCAST_ADDRESS, WILDCARD_ADDRESS,*/ MCAST_ADDRESS;
 
     static {
