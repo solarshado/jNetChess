@@ -1,13 +1,11 @@
 package solarshado.jNetChess.net;
 
-// draft/test of jChess network code
-
+import java.io.IOException;
 import java.net.*;
 // import java.io.*;
 import java.util.*;
 import javax.swing.*;
-import javax.swing.event.ListDataEvent;
-import javax.swing.event.ListDataListener;
+import javax.swing.event.*;
 import solarshado.jNetChess.NameDialog;
 import solarshado.jNetChess.Util;
 import java.awt.Dimension;
@@ -16,42 +14,96 @@ import java.awt.event.*;
 
 public class Lobby implements ActionListener {
 
-    final GameList list;
-    DatagramSocket udpSock;
-
-    Socket tcpTalk;
+    final GameList list = new GameList();
+    final MulticastSocket mcastSock;
 
     final String myName;
     final JList playerList;
+    final JButton joinButton = new JButton("Join");
+    final JButton newButton = new JButton("New");
+    final JButton exitButton = new JButton("Exit");
 
-    public Lobby() {
+    public Lobby() throws IOException {
         myName = (new NameDialog()).getName();
         if (myName == null)
             System.exit(0);
 
-        list = new GameList();
+        mcastSock = new MulticastSocket(NetMisc.UDP_PORT);
+        mcastSock.joinGroup(NetMisc.MCAST_ADDRESS);
+
         playerList = new JList(list);
+        setupGui();
+    }
+
+    private void setupGui() {
         playerList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         // playerList.setVisibleRowCount(4);
-        // playerList.setMinimumSize(new Dimension(70, 60));
+        //playerList.setMinimumSize(new Dimension(70, 60));
 
-        JFrame listFrame = new JFrame("Available Games");
-        listFrame.add(playerList);
+        final JFrame listFrame = new JFrame("Available Games");
+        java.awt.Container p = listFrame.getContentPane();
+        p.setLayout(new java.awt.BorderLayout());
+
+        final JPanel btnPanel = new JPanel();
+        btnPanel.setLayout(new BoxLayout(btnPanel, BoxLayout.Y_AXIS));
+        btnPanel.setAlignmentX(SwingConstants.CENTER);
+        btnPanel.add(joinButton);
+        btnPanel.add(newButton);
+        btnPanel.add(exitButton);
+
+        joinButton.addActionListener(this);
+        newButton.addActionListener(this);
+        exitButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                // listFrame.
+                exit();
+            }
+        });
+
+        final JScrollPane listScroller = new JScrollPane(playerList,
+                ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED,
+                ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+        p.add(listScroller, java.awt.BorderLayout.CENTER);
+        p.add(btnPanel);
+
+        listFrame.addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent e) {
+                exit();
+            }
+        });
         listFrame.setBackground(SystemColor.control);
         listFrame.setVisible(true);
         listFrame.setSize(new Dimension(300, 200)); // TODO: fix this
         Util.centerWindow(listFrame);
     }
 
+    // just in case
+    @Override
+    protected void finalize() throws Throwable {
+        try {
+            exit();
+        }
+        finally {
+            super.finalize();
+        }
+    }
+
+    // any/all cleanup
+    private void exit() {
+        mcastSock.close();
+    }
+
     @Override
     public void actionPerformed(ActionEvent e) {
     }
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
         new Lobby();
     }
 
-    private class GameInfo {
+    private static class GameInfo {
         private final InetAddress address;
         private final String playerName;
 
