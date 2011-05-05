@@ -16,14 +16,14 @@ import java.awt.event.*;
 
 public class Lobby implements ActionListener {
 
-    final GameList list = new GameList();
+    final GameList gamelist = new GameList();
     final MulticastSocket mcastSock;
-    final NetListener netListener;
+    final LobbyNetListener netListener;
 
     final String myName;
 
     final JFrame listFrame = new JFrame("Available Games");
-    final JList playerList;
+    final JList list;
     final JButton joinButton = new JButton("Join");
     final JButton newButton = new JButton("New");
     final JButton exitButton = new JButton("Exit");
@@ -35,20 +35,31 @@ public class Lobby implements ActionListener {
         if (myName == null)
             System.exit(0);
 
-        mcastSock = new MulticastSocket(NetMisc.MULTICAST_PORT);
-        mcastSock.joinGroup(NetMisc.MCAST_ADDRESS);
+        mcastSock = new MulticastSocket(NetConstants.MULTICAST_PORT);
+        mcastSock.joinGroup(NetConstants.MCAST_ADDRESS);
 
-        playerList = new JList(list);
+        list = new JList(gamelist);
         setupGui();
 
-        netListener = new NetListener();
+        netListener = new LobbyNetListener();
         new Thread(netListener).start();
     }
 
     private void setupGui() {
-        playerList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        // playerList.setVisibleRowCount(4);
-        // playerList.setMinimumSize(new Dimension(70, 60));
+        list.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        // list.setVisibleRowCount(4);
+        // list.setMinimumSize(new Dimension(70, 60));
+        list.addListSelectionListener(new ListSelectionListener() {
+            @Override
+            public void valueChanged(ListSelectionEvent e) {
+                if (list.getSelectedValue() == null)
+                    joinButton.setEnabled(false);
+                else
+                    joinButton.setEnabled(true);
+            }
+        });
+
+        joinButton.setEnabled(false);
 
         java.awt.Container p = listFrame.getContentPane();
         p.setLayout(new java.awt.BorderLayout());
@@ -69,7 +80,7 @@ public class Lobby implements ActionListener {
             }
         });
 
-        final JScrollPane listScroller = new JScrollPane(playerList,
+        final JScrollPane listScroller = new JScrollPane(list,
                 ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED,
                 ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
         p.add(listScroller, java.awt.BorderLayout.CENTER);
@@ -112,7 +123,8 @@ public class Lobby implements ActionListener {
 
     // any/all cleanup
     private void exit() {
-        mcastSock.close();
+        netListener.stop();
+        // mcastSock.close();
     }
 
     @Override
@@ -120,10 +132,30 @@ public class Lobby implements ActionListener {
         if (!(e.getSource() instanceof JButton)) return;
         JButton s = (JButton) e.getSource();
         if (s == joinButton) {
-            // TODO
+            Object o = list.getSelectedValue();
+            if (o == null) return;
+            if (!(o instanceof GameInfo)) {
+                System.err.println("selected list object not GameInfo, is "
+                        + o.getClass().getName());
+                return;
+            }
+            GameInfo gi = (GameInfo) list.getSelectedValue();
+            RemoteConnection con = new RemoteConnection(gi.getAddress());
+            if (con != null) {
+                myListener.gotConnection(con);
+                abort(); // we've got an open connection, our job is done
+            }
+            /*
+             * else {
+             * //TODO handle failed attempt at connecting (maybe in
+             * RemoteConnection?)
+             * }
+             */
         }
         else if (s == newButton) {
-            // TODO
+            // TODO newbutton handler
+            RemoteConnection con;
+
         }
         else {
             // foobar...
@@ -150,20 +182,47 @@ public class Lobby implements ActionListener {
         new Lobby();
     }
 
-    private class NetListener implements Runnable {
+    private class ConnectionAnouncer implements Runnable {
+        private volatile boolean die = false;
+        public void stop() {
+            die = true;
+        }
+        @Override
+        public void run() {
+            DatagramPacket packet = GameInfo.asDatagramPacket(new GameInfo(
+                    null, myName));
+            while (!die) {
+                try {
+                    mcastSock.send(packet);
+                }
+                catch (IOException e1) {
+                    // TODO Handle failure to announce game
+                    e1.printStackTrace();
+                }
+                try {
+                    Thread.sleep(500);
+                }
+                catch (InterruptedException e) {
+                    // don't care
+                }
+            }
+            // stuff
+        }
+    }
+
+    private class LobbyNetListener implements Runnable {
         private volatile boolean die = false;
 
         public void stop() {
             die = true;
         }
-
         @Override
         public void run() {
             try {
                 mcastSock.setSoTimeout(1000);
             }
             catch (SocketException e) {
-                // TODO Auto-generated catch block
+                // TODO handle SocketException on setting SO_TIMEOUT
                 e.printStackTrace();
             }
 
@@ -175,22 +234,26 @@ public class Lobby implements ActionListener {
                     mcastSock.receive(packet);
                 }
                 catch (SocketTimeoutException e) {
-                    // an expected reaction
-                    continue;
+                    continue;// an expected occurrence
                 }
                 catch (IOException e) {
-                    // TODO Auto-generated catch block
+                    // TODO handle IOException in listener loop
                     e.printStackTrace();
                     break;
                 }
-                // if we made it here, we've got a valid packet
+                GameInfo gameinfo = GameInfo.fromDatagramPacket(packet);
+                if (data[0] == NetConstants.MulticastPacketType.NEW_GAME)
+                    gamelist.add(gameinfo); // accesses containing Lobby's
+                                            // GameList
+                else if (data[0] == NetConstants.MulticastPacketType.GAME_EXPIRED)
+                    gamelist.remove(gameinfo);
             }
+            mcastSock.close();
         }
     }
 
     /**
      * Tracked by the {@link GameInfo} class, this represents an available game.
-     * TODO needs work... handle additional packet types
      * 
      * @author Adrian Todd
      */
@@ -220,16 +283,20 @@ public class Lobby implements ActionListener {
          */
         public static DatagramPacket asDatagramPacket(GameInfo gi) {
             String name = gi.playerName;
+            byte[] nameB;
             try {
-                DatagramPacket ret = new DatagramPacket(
-                        name.getBytes("ISO-8859-1"), name.length(),
-                        NetMisc.MCAST_ADDRESS, NetMisc.MULTICAST_PORT);
-                return ret;
+                nameB = name.getBytes("ISO-8859-1");
             }
             catch (UnsupportedEncodingException e) {
-                return null; // shouldn't ever happen: according to Oracle's API
-                             // ref., "ISO-8859-1" is required to be supported
+                return null; // shouldn't happen, Oracle API says "ISO-8859-1"
+                             // is required.
             }
+            byte[] data = new byte[nameB.length + 1];
+            data[0] = NetConstants.MulticastPacketType.NEW_GAME;
+            System.arraycopy(name, 0, data, 1, nameB.length);
+            DatagramPacket ret = new DatagramPacket(data, data.length,
+                    NetConstants.MCAST_ADDRESS, NetConstants.MULTICAST_PORT);
+            return ret;
         }
 
         /**
@@ -241,18 +308,18 @@ public class Lobby implements ActionListener {
          */
         public static GameInfo fromDatagramPacket(DatagramPacket p) {
             try {
-                return new GameInfo(p.getAddress(), new String(p.getData(),
-                        "ISO-8859-1"));
+                return new GameInfo(p.getAddress(), new String(p.getData(), 1,
+                        p.getData().length - 1, "ISO-8859-1"));
             }
             catch (UnsupportedEncodingException e) {
-                return null; // shouldn't ever happen: according to Oracle's API
-                             // ref., "ISO-8859-1" is required to be supported
+                return null; // shouldn't happen, Oracle API says "ISO-8859-1"
+                             // is required.
             }
         }
 
         @Override
         public String toString() {
-            return playerName/* +" ("+address.getHostAddress()+")" */;
+            return playerName + " (" + address.getHostAddress() + ")";
         }
     }
 
