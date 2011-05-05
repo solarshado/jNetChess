@@ -141,24 +141,23 @@ public class Lobby implements ActionListener {
             }
             GameInfo gi = (GameInfo) list.getSelectedValue();
             RemoteConnection con = new RemoteConnection(gi.getAddress());
-            if (con != null) {
-                myListener.gotConnection(con);
-                abort(); // we've got an open connection, our job is done
-            }
-            /*
-             * else {
-             * //TODO handle failed attempt at connecting (maybe in
-             * RemoteConnection?)
-             * }
-             */
+            // it will throw() something on failure
+            myListener.gotConnection(con);
+            abort(); // we've got an open connection, our job is done
         }
         else if (s == newButton) {
             // TODO newbutton handler
             RemoteConnection con;
-
+            ConnectionAnnouncer ca = new ConnectionAnnouncer();
+            new Thread(ca).start();
+            con = new RemoteConnection();
+            // it will throw() something on failure
+            ca.stop();
+            myListener.gotConnection(con);
+            abort();
         }
         else {
-            // foobar...
+            // foobar... how'd this listener get attached to something else??
         }
     }
 
@@ -182,11 +181,19 @@ public class Lobby implements ActionListener {
         new Lobby();
     }
 
-    private class ConnectionAnouncer implements Runnable {
+    /**
+     * Used while we're accepting connections. 'Beacons' our name out to the
+     * multicast group,
+     * 
+     * @author Adrian Todd
+     */
+    private class ConnectionAnnouncer implements Runnable {
         private volatile boolean die = false;
+
         public void stop() {
             die = true;
         }
+
         @Override
         public void run() {
             DatagramPacket packet = GameInfo.asDatagramPacket(new GameInfo(
@@ -206,16 +213,30 @@ public class Lobby implements ActionListener {
                     // don't care
                 }
             }
-            // stuff
+            // change the packet type
+            packet.getData()[0] = NetConstants.MulticastPacketType.GAME_EXPIRED;
+            try {
+                mcastSock.send(packet);
+            }
+            catch (IOException e) {
+                // TODO Handle failure to announce game expiration
+                e.printStackTrace();
+            }
         }
     }
 
+    /**
+     * Listens for 'beacons' and adds/removes games from the list as needed.
+     * 
+     * @author Adrian Todd
+     */
     private class LobbyNetListener implements Runnable {
         private volatile boolean die = false;
 
         public void stop() {
             die = true;
         }
+
         @Override
         public void run() {
             try {
