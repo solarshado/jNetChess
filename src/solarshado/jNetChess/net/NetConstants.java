@@ -2,7 +2,7 @@ package solarshado.jNetChess.net;
 
 import java.net.*;
 
-public abstract class NetMisc {
+public abstract class NetConstants {
 
     public static final int MULTICAST_PORT = 61020, TCP_PORT = 61020;
     public static final InetAddress /*BROADCAST_ADDRESS, WILDCARD_ADDRESS,*/ MCAST_ADDRESS;
