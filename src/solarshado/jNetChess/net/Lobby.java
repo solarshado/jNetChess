@@ -1,18 +1,13 @@
 package solarshado.jNetChess.net;
 
-import java.io.IOException;
-import java.io.UnsupportedEncodingException;
+import java.awt.*;
+import java.awt.event.*;
+import java.io.*;
 import java.net.*;
-// import java.io.*;
 import java.util.*;
 import javax.swing.*;
 import javax.swing.event.*;
-import solarshado.jNetChess.NameDialog;
-import solarshado.jNetChess.Util;
-import java.awt.Dimension;
-import java.awt.SystemColor;
-import java.awt.Toolkit;
-import java.awt.event.*;
+import solarshado.jNetChess.*;
 
 public class Lobby implements ActionListener {
 
@@ -62,14 +57,12 @@ public class Lobby implements ActionListener {
         joinButton.setEnabled(false);
 
         java.awt.Container p = listFrame.getContentPane();
-        p.setLayout(new java.awt.BorderLayout());
+        p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
 
         final JPanel btnPanel = new JPanel();
-        btnPanel.setLayout(new BoxLayout(btnPanel, BoxLayout.Y_AXIS));
-        btnPanel.setAlignmentX(SwingConstants.CENTER);
+        btnPanel.setLayout(new BoxLayout(btnPanel, BoxLayout.X_AXIS));
         btnPanel.add(joinButton);
         btnPanel.add(newButton);
-        btnPanel.add(exitButton);
 
         joinButton.addActionListener(this);
         newButton.addActionListener(this);
@@ -83,9 +76,11 @@ public class Lobby implements ActionListener {
         final JScrollPane listScroller = new JScrollPane(list,
                 ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED,
                 ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
-        p.add(listScroller, java.awt.BorderLayout.CENTER);
+        p.add(listScroller);
         p.add(btnPanel);
-
+        p.add(exitButton);
+        exitButton.setAlignmentX(JComponent.CENTER_ALIGNMENT);
+        
         listFrame.addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosing(WindowEvent e) {
@@ -95,7 +90,7 @@ public class Lobby implements ActionListener {
         });
         listFrame.setBackground(SystemColor.control);
         listFrame.setVisible(true);
-        listFrame.setSize(new Dimension(300, 200)); // TODO: fix this
+        listFrame.setSize(new Dimension(300, 200)); // TODO fix this
         Util.centerWindow(listFrame);
     }
 
@@ -146,7 +141,6 @@ public class Lobby implements ActionListener {
             abort(); // we've got an open connection, our job is done
         }
         else if (s == newButton) {
-            // TODO newbutton handler
             RemoteConnection con;
             ConnectionAnnouncer ca = new ConnectionAnnouncer();
             new Thread(ca).start();
@@ -314,7 +308,7 @@ public class Lobby implements ActionListener {
             }
             byte[] data = new byte[nameB.length + 1];
             data[0] = NetConstants.MulticastPacketType.NEW_GAME;
-            System.arraycopy(name, 0, data, 1, nameB.length);
+            System.arraycopy(nameB, 0, data, 1, nameB.length);
             DatagramPacket ret = new DatagramPacket(data, data.length,
                     NetConstants.MCAST_ADDRESS, NetConstants.MULTICAST_PORT);
             return ret;
@@ -352,9 +346,10 @@ public class Lobby implements ActionListener {
      */
     private class GameList implements ListModel {
 
-        private final List<GameInfo> gameList = new ArrayList<GameInfo>(4);
-        private final List<ListDataListener> listeners = new Vector<ListDataListener>(
-                1, 1);
+        private final java.util.List<GameInfo> gameList =
+                new ArrayList<GameInfo>(4);
+        private final java.util.List<ListDataListener> listeners =
+                new Vector<ListDataListener>(1, 1);
 
         public synchronized void add(GameInfo x) {
             if (gameList.contains(x)) return; // no duplicates
