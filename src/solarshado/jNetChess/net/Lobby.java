@@ -80,7 +80,7 @@ public class Lobby implements ActionListener {
         p.add(btnPanel);
         p.add(exitButton);
         exitButton.setAlignmentX(JComponent.CENTER_ALIGNMENT);
-        
+
         listFrame.addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosing(WindowEvent e) {
@@ -137,7 +137,7 @@ public class Lobby implements ActionListener {
             GameInfo gi = (GameInfo) list.getSelectedValue();
             RemoteConnection con = new RemoteConnection(gi.getAddress());
             // it will throw() something on failure
-            myListener.gotConnection(con);
+            if (myListener != null) myListener.gotConnection(con);
             abort(); // we've got an open connection, our job is done
         }
         else if (s == newButton) {
@@ -147,7 +147,7 @@ public class Lobby implements ActionListener {
             con = new RemoteConnection();
             // it will throw() something on failure
             ca.stop();
-            myListener.gotConnection(con);
+            if (myListener != null) myListener.gotConnection(con);
             abort();
         }
         else {
@@ -289,6 +289,16 @@ public class Lobby implements ActionListener {
             return playerName;
         }
 
+        @Override
+        public boolean equals(Object o) {
+            if (o == this) return true;
+            // reminder: instanceof always returns false if the obj is null
+            if (!(o instanceof GameInfo)) return false;
+            GameInfo gi = (GameInfo) o;
+            return this.address.equals(gi.address) &&
+                    this.playerName.equals(gi.playerName);
+        }
+
         /**
          * Converts a locally-created {@link GameInfo} object into a
          * ready-to-send {@link DatagramPacket}
@@ -324,7 +334,7 @@ public class Lobby implements ActionListener {
         public static GameInfo fromDatagramPacket(DatagramPacket p) {
             try {
                 return new GameInfo(p.getAddress(), new String(p.getData(), 1,
-                        p.getData().length - 1, "ISO-8859-1"));
+                        p.getLength() - 1, "ISO-8859-1"));
             }
             catch (UnsupportedEncodingException e) {
                 return null; // shouldn't happen, Oracle API says "ISO-8859-1"
