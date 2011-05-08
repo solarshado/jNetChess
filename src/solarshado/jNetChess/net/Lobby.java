@@ -135,7 +135,7 @@ public class Lobby implements ActionListener {
                 return;
             }
             GameInfo gi = (GameInfo) list.getSelectedValue();
-            RemoteConnection con = new RemoteConnection(gi.getAddress());
+            RemoteConnection con = new RemoteConnection(myName,gi.getAddress());
             // it will throw() something on failure
             if (myListener != null) myListener.gotConnection(con);
             abort(); // we've got an open connection, our job is done
@@ -144,7 +144,7 @@ public class Lobby implements ActionListener {
             RemoteConnection con;
             ConnectionAnnouncer ca = new ConnectionAnnouncer();
             new Thread(ca).start();
-            con = new RemoteConnection();
+            con = new RemoteConnection(myName);
             // it will throw() something on failure
             ca.stop();
             if (myListener != null) myListener.gotConnection(con);
