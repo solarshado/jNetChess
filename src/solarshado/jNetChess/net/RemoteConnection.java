@@ -71,6 +71,7 @@ public final class RemoteConnection {
                     // TODO handle errors closing connections
                     e.printStackTrace();
                 }
+                status(StatusState.CLOSED);
                 throw new ConnectionCancledExcpetion();
             }
             try {
@@ -85,6 +86,7 @@ public final class RemoteConnection {
                 // TODO handle IOE on accept()
                 e.printStackTrace();
             }
+            if(sockTmp == null) throw new RuntimeException();
 
             remoteNameTmp = swapNames(myName, sockTmp);
 
@@ -99,8 +101,8 @@ public final class RemoteConnection {
                 }
                 continue;
             }
-
-        } while (false);
+            break;
+        } while (true);
 
         sock = sockTmp;
         remotePlayerName = remoteNameTmp;
@@ -268,11 +270,13 @@ public final class RemoteConnection {
             rejectBtn.addActionListener(this);
 
             f.setVisible(true);
+            f.pack();
             Util.centerWindow(f);
         }
 
         public void update() { // TODO done? seems too simple...
             infoLlb.setText(state.getMessage());
+            if (state == StatusState.CLOSED) f.dispose();
         }
 
         public boolean prompt(String remoteName) {
@@ -311,7 +315,8 @@ public final class RemoteConnection {
         SETTING_UP("Setting up server..."),
         WAITING("Waiting for connections..."),
         CANCELED("Canceled, stopping server..."),
-        // above 3 for server
+        CLOSED(">status window closing...<"),
+        // above 4 for server
         CONNECTING("Connecting..."),
         REFUSED("Connection refused..."),
         // above 2 for client, last 2 for both
