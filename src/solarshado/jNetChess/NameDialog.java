@@ -47,10 +47,6 @@ public class NameDialog extends JDialog implements ActionListener {
         return (nameGot.equals("") ? null : nameGot);
     }
 
-    public static void main(String[] arg) {
-        System.out.println("Got: " + (new NameDialog()).getName());
-    }
-
     @Override
     public void actionPerformed(ActionEvent e) {
         final JComponent source = (JComponent) e.getSource();
