@@ -90,7 +90,7 @@ public class Lobby implements ActionListener {
         });
         listFrame.setBackground(SystemColor.control);
         listFrame.setVisible(true);
-        listFrame.setSize(new Dimension(300, 200)); // TODO fix this
+        listFrame.pack();
         Util.centerWindow(listFrame);
     }
 
@@ -135,20 +135,11 @@ public class Lobby implements ActionListener {
                 return;
             }
             GameInfo gi = (GameInfo) list.getSelectedValue();
-            RemoteConnection con = new RemoteConnection(myName,gi.getAddress());
-            // it will throw() something on failure
-            if (myListener != null) myListener.gotConnection(con);
-            abort(); // we've got an open connection, our job is done
+
+            new Thread(new ClientWrapper(gi.getAddress())).start();
         }
         else if (s == newButton) {
-            RemoteConnection con;
-            ConnectionAnnouncer ca = new ConnectionAnnouncer();
-            new Thread(ca).start();
-            con = new RemoteConnection(myName);
-            // it will throw() something on failure
-            ca.stop();
-            if (myListener != null) myListener.gotConnection(con);
-            abort();
+            new Thread(new ServerWrapper()).start();
         }
         else {
             // foobar... how'd this listener get attached to something else??
@@ -173,6 +164,69 @@ public class Lobby implements ActionListener {
 
     public static void main(String[] args) throws Exception {
         new Lobby();
+    }
+
+    /**
+     * Another thread: to get waiting on the server out of the event-thread
+     * @author Adrian Todd
+     */
+    private class ServerWrapper implements Runnable {
+        @Override
+        public void run() {
+            listFrame.setVisible(false);
+            RemoteConnection con = null;
+            ConnectionAnnouncer ca = new ConnectionAnnouncer();
+            new Thread(ca).start();
+            try {
+                con = new RemoteConnection(myName);
+            }
+            catch (ConnectionCancledExcpetion ex) {
+                ca.stop();
+                listFrame.setVisible(true);
+                return;
+            }
+            catch (IOException ex) {
+                // TODO handle IOEs from server
+                ex.printStackTrace();
+            }
+            ca.stop();
+            if (myListener != null) myListener.gotConnection(con);
+            abort();
+        }
+
+    }
+
+    /**
+     * Another thread: to get waiting on the client out of the event-thread
+     * @author Adrian Todd
+     */
+    private class ClientWrapper implements Runnable {
+        final InetAddress remote;
+
+        public ClientWrapper(InetAddress r) {
+            remote = r;
+        }
+
+        @Override
+        public void run() {
+            listFrame.setVisible(false);
+            RemoteConnection con = null;
+            try {
+                con = new RemoteConnection(myName, remote);
+            }
+            catch (ConnectionCancledExcpetion e1) {
+                abort();
+                listFrame.setVisible(true);
+                return;
+            }
+            catch (IOException e1) {
+                // TODO handle IOEs from client
+                e1.printStackTrace();
+            }
+            // it will throw() something on failure
+            if (myListener != null) myListener.gotConnection(con);
+            abort(); // we've got an open connection, our job is done
+        }
     }
 
     /**
