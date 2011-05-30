@@ -214,8 +214,7 @@ public class Lobby implements ActionListener {
             try {
                 con = new RemoteConnection(myName, remote);
             }
-            catch (ConnectionCancledExcpetion e1) {
-                abort();
+            catch (ConnectionCancledExcpetion e) {
                 listFrame.setVisible(true);
                 return;
             }

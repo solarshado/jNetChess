@@ -13,6 +13,8 @@ import solarshado.jNetChess.Util;
  * objects will be created by a Lobby and passed to a LobbybListener
  * constructors will handle establishing said connection
  * 
+ * in other words, this class implements both the client and server
+ * 
  * @author Adrian Todd
  */
 public final class RemoteConnection {
@@ -86,7 +88,6 @@ public final class RemoteConnection {
                 // TODO handle IOE on accept()
                 e.printStackTrace();
             }
-            if(sockTmp == null) throw new RuntimeException();
 
             remoteNameTmp = swapNames(myName, sockTmp);
 
@@ -94,6 +95,7 @@ public final class RemoteConnection {
                 try {
                     sockTmp.getOutputStream().write(NetConstants.REJECT_MSG);
                     sockTmp.close();
+                    status(StatusState.WAITING);
                 }
                 catch (IOException e) {
                     // TODO handle IOE on rejecting connection
@@ -140,7 +142,7 @@ public final class RemoteConnection {
      * 
      * @param myName playerName for this end of the connection
      * @param remote Address to (attempt) to connect to.
-     * @throws IOException 
+     * @throws IOException
      */
     public RemoteConnection(String myName, InetAddress remote)
             throws ConnectionCancledExcpetion, IOException {
@@ -149,7 +151,7 @@ public final class RemoteConnection {
         remoteComputer = remote;
 
         Socket sockTmp = null;
-        
+
         System.err.println("New Connction to " + remote + " created");
 
         status(StatusState.SETTING_UP);
@@ -197,6 +199,7 @@ public final class RemoteConnection {
         if (!hs_success) { throw new IOException("Handshake failure"); }
         if (!accepted) {
             status(StatusState.REFUSED);
+            status(StatusState.CLOSED);
             throw new ConnectionCancledExcpetion();
         }
 
@@ -209,9 +212,15 @@ public final class RemoteConnection {
             e.printStackTrace();
         }
         status(StatusState.CONNECTED);
-        // TODO initiate connection
     }
 
+    /**
+     * notifies the RemoteConnection that is should close it's status dialog
+     */
+    public void closeStatus() {
+        myStatus.f.dispose();
+    }
+    
     private void status(StatusState s) {
         state = s;
         myStatus.update();
@@ -235,7 +244,7 @@ public final class RemoteConnection {
     private class StatusWindow implements ActionListener {
 
         private static final String CANCEL = "cancelPanel",
-                PROMPT = "promptPanel";
+                PROMPT = "promptPanel", CONFIRM = "confirmPanel";
 
         private final JFrame f = new JFrame("Connection Status...");
         private final JLabel infoLlb = new JLabel();
@@ -247,6 +256,8 @@ public final class RemoteConnection {
         private final JPanel promptPnl = new JPanel();
         private final JButton acceptBtn = new JButton("Accept");
         private final JButton rejectBtn = new JButton("Reject");
+
+        private final JButton confirmBtn = new JButton("OK");
 
         private volatile boolean haveResponse;
         private volatile boolean response;
@@ -262,21 +273,40 @@ public final class RemoteConnection {
 
             lowerPanel.add(cancelBtn, CANCEL);
             lowerPanel.add(promptPnl, PROMPT);
+            lowerPanel.add(confirmBtn, CONFIRM);
 
             p.add(lowerPanel);
 
             cancelBtn.addActionListener(this);
             acceptBtn.addActionListener(this);
             rejectBtn.addActionListener(this);
+            confirmBtn.addActionListener(this);
 
             f.setVisible(true);
             f.pack();
             Util.centerWindow(f);
         }
 
-        public void update() { // TODO done? seems too simple...
+        public void update() {
             infoLlb.setText(state.getMessage());
-            if (state == StatusState.CLOSED) f.dispose();
+            if (state == StatusState.CLOSED)
+                f.dispose();
+            else if (state == StatusState.REFUSED) {
+                lowerLayout.show(lowerPanel, CONFIRM);
+                haveResponse = false;
+                while (!haveResponse) {
+                    try {
+                        Thread.sleep(250);
+                    }
+                    catch (InterruptedException e) {
+                        // don't care
+                    }
+                }
+                //rejection ok'd by user
+            }
+            else if (state == StatusState.CONNECTED) {
+                f.remove(lowerPanel);
+            }
         }
 
         public boolean prompt(String remoteName) {
@@ -291,6 +321,7 @@ public final class RemoteConnection {
                     // don't care
                 }
             }
+            lowerLayout.show(lowerPanel, CANCEL);
             return response;
         }
 
@@ -303,6 +334,9 @@ public final class RemoteConnection {
             }
             else if (s == rejectBtn) {
                 response = false;
+                haveResponse = true;
+            }
+            else if (s==confirmBtn){
                 haveResponse = true;
             }
             else if (s == cancelBtn) {
