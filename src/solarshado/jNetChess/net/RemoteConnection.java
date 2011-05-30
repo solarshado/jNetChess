@@ -40,6 +40,7 @@ public final class RemoteConnection {
         myStatus = new StatusWindow();
         myPlayerName = myName;
         System.err.println("creating New Listening Connction...");
+        status(StatusState.SETTING_UP);
 
         ServerSocket srv = null;
         try {
@@ -220,7 +221,7 @@ public final class RemoteConnection {
     public void closeStatus() {
         myStatus.f.dispose();
     }
-    
+
     private void status(StatusState s) {
         state = s;
         myStatus.update();
@@ -265,9 +266,11 @@ public final class RemoteConnection {
         public StatusWindow() {
             java.awt.Container p = f.getContentPane();
             p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
-            p.add(infoLlb);
+            infoLlb.setAlignmentX(JComponent.CENTER_ALIGNMENT);
 
-            promptPnl.setLayout(new BoxLayout(promptPnl, BoxLayout.X_AXIS));
+            // can't figure out why, but this is the only way to get the dialog
+            // sized right :-/
+            // promptPnl.setLayout(new BoxLayout(promptPnl, BoxLayout.X_AXIS));
             promptPnl.add(acceptBtn);
             promptPnl.add(rejectBtn);
 
@@ -275,6 +278,10 @@ public final class RemoteConnection {
             lowerPanel.add(promptPnl, PROMPT);
             lowerPanel.add(confirmBtn, CONFIRM);
 
+            lowerPanel.setMinimumSize(lowerLayout
+                    .preferredLayoutSize(lowerPanel));
+
+            p.add(infoLlb);
             p.add(lowerPanel);
 
             cancelBtn.addActionListener(this);
@@ -302,11 +309,12 @@ public final class RemoteConnection {
                         // don't care
                     }
                 }
-                //rejection ok'd by user
+                // rejection ok'd by user
             }
             else if (state == StatusState.CONNECTED) {
                 f.remove(lowerPanel);
             }
+            f.pack();
         }
 
         public boolean prompt(String remoteName) {
@@ -336,7 +344,7 @@ public final class RemoteConnection {
                 response = false;
                 haveResponse = true;
             }
-            else if (s==confirmBtn){
+            else if (s == confirmBtn) {
                 haveResponse = true;
             }
             else if (s == cancelBtn) {

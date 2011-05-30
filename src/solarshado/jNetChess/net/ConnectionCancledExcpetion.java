@@ -4,6 +4,7 @@ package solarshado.jNetChess.net;
  * @author Adrian Todd
  *
  */
+@SuppressWarnings("serial")
 final class ConnectionCancledExcpetion extends Exception {
 
     /**
