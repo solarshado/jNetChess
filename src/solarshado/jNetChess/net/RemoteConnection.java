@@ -1,8 +1,8 @@
 package solarshado.jNetChess.net;
 
 import java.net.*;
-import java.util.concurrent.RejectedExecutionException;
-import java.awt.BorderLayout;
+import java.util.Arrays;
+import java.awt.*;
 import java.awt.event.*;
 import java.io.*;
 import javax.swing.*;
@@ -31,27 +31,104 @@ public final class RemoteConnection {
      * connected.
      * 
      * @param myName playerName for this end of the connection
+     * @throws IOException
      */
-    public RemoteConnection(String myName) {
+    public RemoteConnection(String myName) throws ConnectionCancledExcpetion,
+            IOException {
         myStatus = new StatusWindow();
         myPlayerName = myName;
         System.err.println("creating New Listening Connction...");
 
-        ServerSocket srv = new ServerSocket(NetConstants.TCP_PORT);
+        ServerSocket srv = null;
+        try {
+            srv = new ServerSocket(NetConstants.TCP_PORT);
+        }
+        catch (IOException e) {
+            // TODO handle error setting up ServerSock
+            e.printStackTrace();
+        }
 
-        srv.setSoTimeout(500);
+        try {
+            srv.setSoTimeout(500);
+        }
+        catch (SocketException e) {
+            // TODO handle error setting SO_TIMEOUT
+            e.printStackTrace();
+        }
 
-        while (state != StatusState.CANCELED) {
+        status(StatusState.WAITING);
+
+        Socket sockTmp = null;
+        String remoteNameTmp = null;
+
+        do {
+            if (state == StatusState.CANCELED) {
+                try {
+                    if (sockTmp != null) sockTmp.close();
+                    srv.close();
+                }
+                catch (IOException e) {
+                    // TODO handle errors closing connections
+                    e.printStackTrace();
+                }
+                throw new ConnectionCancledExcpetion();
+            }
             try {
-                srv.accept();
+                sockTmp = srv.accept();
+                status(StatusState.CONNECTING);
             }
             catch (SocketTimeoutException e) {
                 // expected, so just:
                 continue;
             }
+            catch (IOException e) {
+                // TODO handle IOE on accept()
+                e.printStackTrace();
+            }
+
+            remoteNameTmp = swapNames(myName, sockTmp);
+
+            if (!myStatus.prompt(remoteNameTmp)) { // rejected
+                try {
+                    sockTmp.getOutputStream().write(NetConstants.REJECT_MSG);
+                    sockTmp.close();
+                }
+                catch (IOException e) {
+                    // TODO handle IOE on rejecting connection
+                    e.printStackTrace();
+                }
+                continue;
+            }
+
+        } while (false);
+
+        sock = sockTmp;
+        remotePlayerName = remoteNameTmp;
+        remoteComputer = sock.getInetAddress();
+
+        status(StatusState.HANDSHAKING);
+        // connected, proceed w/ rest of handshake
+        try {
+            sockTmp.getOutputStream().write(NetConstants.ACCEPT_MSG);
+        }
+        catch (IOException e) {
+            // TODO handle IOE on sending accept
+            e.printStackTrace();
         }
 
-        // TODO stub
+        try {
+            if (sock.getInputStream().read() != 255)
+                throw new IOException("Handshake failure");
+        }
+        catch (IOException e) {
+            if (e.getMessage().equals("Handshake failure"))
+                throw e;
+            else {
+                // TODO handle IOE on finishing handshake
+                e.printStackTrace();
+            }
+        }
+        status(StatusState.CONNECTED);
     }
 
     /**
@@ -61,21 +138,104 @@ public final class RemoteConnection {
      * 
      * @param myName playerName for this end of the connection
      * @param remote Address to (attempt) to connect to.
+     * @throws IOException 
      */
-    public RemoteConnection(String myName, InetAddress remote) {
+    public RemoteConnection(String myName, InetAddress remote)
+            throws ConnectionCancledExcpetion, IOException {
         myStatus = new StatusWindow();
         myPlayerName = myName;
+        remoteComputer = remote;
 
+        Socket sockTmp = null;
+        
         System.err.println("New Connction to " + remote + " created");
 
-        // TODO stub
+        status(StatusState.SETTING_UP);
+        status(StatusState.CONNECTING);
+        try {
+            sockTmp = new Socket(remote, NetConstants.TCP_PORT);
+        }
+        catch (IOException e) {
+            // TODO handle IOE on connection
+            e.printStackTrace();
+        }
+        finally {
+            sock = sockTmp;
+        }
+
+        status(StatusState.HANDSHAKING);
+
+        remotePlayerName = swapNames(myName, sock);
+
+        byte[] response = new byte[6];
+        boolean hs_success = false;
+        boolean accepted = false;
+
+        try {
+            if (sock.getInputStream().read(response) == -1) {
+                hs_success = false;
+            }
+            else if (Arrays.equals(response, NetConstants.ACCEPT_MSG)) {
+                hs_success = true;
+                accepted = true;
+            }
+            else if (Arrays.equals(response, NetConstants.REJECT_MSG)) {
+                hs_success = true;
+                accepted = false;
+            }
+            else {
+                hs_success = false;
+            }
+        }
+        catch (IOException e) {
+            // TODO handle IOE on handshake response
+            e.printStackTrace();
+        }
+
+        if (!hs_success) { throw new IOException("Handshake failure"); }
+        if (!accepted) {
+            status(StatusState.REFUSED);
+            throw new ConnectionCancledExcpetion();
+        }
+
+        // confirm acceptance
+        try {
+            sock.getOutputStream().write(255);
+        }
+        catch (IOException e) {
+            // TODO handle IOE on end of handshake
+            e.printStackTrace();
+        }
+        status(StatusState.CONNECTED);
+        // TODO initiate connection
     }
 
-    private class StatusWindow extends JFrame implements ActionListener {
+    private void status(StatusState s) {
+        state = s;
+        myStatus.update();
+    }
+
+    private String swapNames(String myName, Socket sock) {
+        try {
+            sock.getOutputStream()
+                    .write((myName + '\n').getBytes("ISO-8859-1"));
+            return (new BufferedReader(new InputStreamReader(
+                    sock.getInputStream()))
+                    .readLine());
+        }
+        catch (IOException e) {
+            // TODO handle IOE while swapping names
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    private class StatusWindow implements ActionListener {
 
         private static final String CANCEL = "cancelPanel",
                 PROMPT = "promptPanel";
 
+        private final JFrame f = new JFrame("Connection Status...");
         private final JLabel infoLlb = new JLabel();
 
         private final java.awt.CardLayout lowerLayout = new java.awt.CardLayout();
@@ -90,8 +250,7 @@ public final class RemoteConnection {
         private volatile boolean response;
 
         public StatusWindow() {
-            super("Connection Status...");
-            java.awt.Container p = getContentPane();
+            java.awt.Container p = f.getContentPane();
             p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
             p.add(infoLlb);
 
@@ -108,17 +267,18 @@ public final class RemoteConnection {
             acceptBtn.addActionListener(this);
             rejectBtn.addActionListener(this);
 
-            Util.centerWindow(this);
+            f.setVisible(true);
+            Util.centerWindow(f);
         }
 
-        public void update() {
-
+        public void update() { // TODO done? seems too simple...
+            infoLlb.setText(state.getMessage());
         }
 
-        public boolean prompt() {
+        public boolean prompt(String remoteName) {
             haveResponse = false;
             lowerLayout.show(lowerPanel, PROMPT);
-            infoLlb.setText("'" + remotePlayerName + "' would like to play.");
+            infoLlb.setText("'" + remoteName + "' would like to play.");
             while (!haveResponse) {
                 try {
                     Thread.sleep(250);
@@ -132,14 +292,40 @@ public final class RemoteConnection {
 
         @Override
         public void actionPerformed(ActionEvent e) {
-            // TODO Auto-generated method stub
+            java.awt.Component s = (Component) e.getSource();
+            if (s == acceptBtn) {
+                response = true;
+                haveResponse = true;
+            }
+            else if (s == rejectBtn) {
+                response = false;
+                haveResponse = true;
+            }
+            else if (s == cancelBtn) {
+                status(StatusState.CANCELED);
+            }
         }
     }
 
     public enum StatusState {
-        SETTING_UP,
-        WAITING,
-        CANCELED,
-        CONNECTED
+        SETTING_UP("Setting up server..."),
+        WAITING("Waiting for connections..."),
+        CANCELED("Canceled, stopping server..."),
+        // above 3 for server
+        CONNECTING("Connecting..."),
+        REFUSED("Connection refused..."),
+        // above 2 for client, last 2 for both
+        HANDSHAKING("Connected: handshaking..."),
+        CONNECTED("Successfully Connected!");
+
+        String message;
+
+        StatusState(String msg) {
+            this.message = msg;
+        }
+
+        String getMessage() {
+            return message;
+        }
     }
 }
